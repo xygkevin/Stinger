@@ -53,6 +53,7 @@ typedef NS_ENUM(NSInteger, STHookResult) {
 - (SEL)sel;
 - (NSArray *)arguments;
 - (NSString *)typeEncoding;
+- (void)setArgument:(id)arg atIndex:(NSInteger)idx;
 - (void)invokeAndGetOriginalRetValue:(void *)retLoc;
 @end
 
@@ -75,6 +76,7 @@ typedef NS_ENUM(NSInteger, STHookResult) {
 @property (nonatomic, weak) Class hookedCls;
 @property (nonatomic, weak) Class statedCls;
 @property (nonatomic, assign) BOOL isInstanceHook;
+@property (nonatomic, assign) BOOL isInstanceIsaHook;
 
 + (instancetype)poolWithTypeEncoding:(NSString *)typeEncoding originalIMP:(IMP)imp selector:(SEL)sel;
 @end

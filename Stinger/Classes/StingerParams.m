@@ -19,69 +19,92 @@
 @property (nonatomic) IMP originalIMP;
 @property (nonatomic) void **args;
 @property (nonatomic) NSArray *argumentTypes;
-@property (nonatomic) NSArray *arguments;
+@property (nonatomic) NSMutableArray *arguments;
 @end
 
 @implementation StingerParams
 
 - (instancetype)initWithType:(NSString *)types originalIMP:(IMP)imp sel:(SEL)sel args:(void **)args argumentTypes:(NSArray *)argumentTypes {
-  if (self = [super init]) {
-    _types = types;
-    _sel = sel;
-    _originalIMP = imp;
-    _args = args;
-    _argumentTypes = argumentTypes;
-    [self st_genarateArguments];
-  }
-  return self;
+    if (self = [super init]) {
+        _types = types;
+        _sel = sel;
+        _originalIMP = imp;
+        _args = args;
+        _argumentTypes = argumentTypes;
+        [self st_genarateArguments];
+    }
+    return self;
 }
 
 - (id)slf {
-  void **slfPointer = _args[0];
-  return (__bridge id)(*slfPointer);
+    void **slfPointer = _args[0];
+    return (__bridge id)(*slfPointer);
 }
 
 - (SEL)sel {
-  return _sel;
+    return _sel;
 }
 
 - (NSArray *)arguments {
-    return _arguments;
+    return [_arguments copy];
 }
 
 - (NSString *)typeEncoding {
     return _types;
 }
 
+/// 修改函数参数
+/// - Parameters:
+///   - arg: 对应的参数，值类型请转换为NSValue传递
+///   - idx: 序号，默认从0开始
+- (void)setArgument:(id)arg atIndex:(NSInteger)idx {
+    _arguments[idx]= arg;
+    NSString *argTypeStr = _argumentTypes[idx + 2];
+    const char *argType = argTypeStr.UTF8String;
+    if (strcmp(argType, @encode(id)) == 0 || strcmp(argType, @encode(Class)) == 0) {
+        void **objPointer = _args[idx + 2];
+        *objPointer = (__bridge void *)(arg);
+        return;
+    }
+    if ([arg isKindOfClass:NSValue.class]) {
+        if (@available(iOS 11.0, *)) {
+            NSUInteger valueSize = 0;
+            NSGetSizeAndAlignment(argType, &valueSize, NULL);
+            [(NSValue *)arg getValue:_args[idx + 2] size:valueSize];
+        } else {
+            [(NSValue *)arg getValue:_args[idx + 2]];
+        }
+    }
+}
+
 - (void)invokeAndGetOriginalRetValue:(void *)retLoc {
-  NSMethodSignature *signature = [NSMethodSignature signatureWithObjCTypes:_types.UTF8String];
-  NSInteger count = signature.numberOfArguments;
-  NSInvocation *originalInvocation = [NSInvocation invocationWithMethodSignature:signature];
-  for (int i = 0; i < count; i ++) {
-    [originalInvocation setArgument:_args[i] atIndex:i];
-  }
-  [originalInvocation invokeUsingIMP:_originalIMP];
-  if (originalInvocation.methodSignature.methodReturnLength && !(retLoc == NULL)) {
-    [originalInvocation getReturnValue:retLoc];
-  }
+    NSMethodSignature *signature = [NSMethodSignature signatureWithObjCTypes:_types.UTF8String];
+    NSInteger count = signature.numberOfArguments;
+    NSInvocation *originalInvocation = [NSInvocation invocationWithMethodSignature:signature];
+    for (int i = 0; i < count; i ++) {
+        [originalInvocation setArgument:_args[i] atIndex:i];
+    }
+    [originalInvocation invokeUsingIMP:_originalIMP];
+    if (originalInvocation.methodSignature.methodReturnLength && !(retLoc == NULL)) {
+        [originalInvocation getReturnValue:retLoc];
+    }
 }
 
 #pragma - mark Private
 
 - (void)st_genarateArguments {
-    NSMutableArray *args = [[NSMutableArray alloc] initWithCapacity:_argumentTypes.count];
+    _arguments = [NSMutableArray array];
     for (NSUInteger i = 2; i < _argumentTypes.count; i++) {
         id argument = [self st_argumentWithType:_argumentTypes[i] index:i];
-        [args addObject:argument ?: NSNull.null];
+        [_arguments addObject:argument ?: NSNull.null];
     }
-    _arguments = [args copy];
 }
 
 - (id)st_argumentWithType:(NSString *)type index:(NSUInteger)index {
     const char *argType = type.UTF8String;
     // Skip const type qualifier.
     if (argType[0] == _C_CONST) argType++;
-
+    
 #define WRAP_AND_RETURN(type) do { type val = 0; val = *((type *)_args[index]); return @(val); } while (0)
     if (strcmp(argType, @encode(id)) == 0 || strcmp(argType, @encode(Class)) == 0) {
         void **objPointer = _args[index];
@@ -126,7 +149,7 @@
     } else {
         NSUInteger valueSize = 0;
         NSGetSizeAndAlignment(argType, &valueSize, NULL);
-
+        
         unsigned char valueBytes[valueSize];
         memcpy(valueBytes, _args[index], valueSize);
         
