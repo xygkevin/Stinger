@@ -86,7 +86,129 @@
     }
     [originalInvocation invokeUsingIMP:_originalIMP];
     if (originalInvocation.methodSignature.methodReturnLength && !(retLoc == NULL)) {
-        [originalInvocation getReturnValue:retLoc];
+        __autoreleasing id returnObjValue = [self getReturnValue:originalInvocation];
+        retLoc = (__bridge void *)(returnObjValue);
+    }
+}
+
+- (id)getReturnValue:(NSInvocation *)invocation {
+    const char *returnType = invocation.methodSignature.methodReturnType;
+    while (*returnType == 'r' || // const
+           *returnType == 'n' || // in
+           *returnType == 'N' || // inout
+           *returnType == 'o' || // out
+           *returnType == 'O' || // bycopy
+           *returnType == 'R' || // byref
+           *returnType == 'V') { // oneway
+        returnType++;
+    }
+    
+    if (strcmp(returnType, @encode(id)) == 0 || strcmp(returnType, @encode(Class)) == 0 || strcmp(returnType, @encode(void (^)(void))) == 0) {
+        __autoreleasing id returnObj;
+        [invocation getReturnValue:&returnObj];
+        return returnObj;
+    } else if (strcmp(returnType, @encode(char)) == 0) {
+        char value = 0;
+        [invocation getReturnValue:&value];
+        return @(value);
+    } else if (strcmp(returnType, @encode(int)) == 0) {
+        int value = 0;
+        [invocation getReturnValue:&value];
+        return @(value);
+    } else if (strcmp(returnType, @encode(short)) == 0) {
+        short value = 0;
+        [invocation getReturnValue:&value];
+        return @(value);
+    } else if (strcmp(returnType, @encode(long)) == 0) {
+        long value = 0;
+        [invocation getReturnValue:&value];
+        return @(value);
+    } else if (strcmp(returnType, @encode(long long)) == 0) {
+        long long value = 0;
+        [invocation getReturnValue:&value];
+        return @(value);
+    } else if (strcmp(returnType, @encode(unsigned char)) == 0) {
+        unsigned char value = 0;
+        [invocation getReturnValue:&value];
+        return @(value);
+    } else if (strcmp(returnType, @encode(unsigned int)) == 0) {
+        unsigned int value = 0;
+        [invocation getReturnValue:&value];
+        return @(value);
+    } else if (strcmp(returnType, @encode(unsigned short)) == 0) {
+        unsigned short value = 0;
+        [invocation getReturnValue:&value];
+        return @(value);
+    } else if (strcmp(returnType, @encode(unsigned long)) == 0) {
+        unsigned long value = 0;
+        [invocation getReturnValue:&value];
+        return @(value);
+    } else if (strcmp(returnType, @encode(unsigned long long)) == 0) {
+        unsigned long long value = 0;
+        [invocation getReturnValue:&value];
+        return @(value);
+    } else if (strcmp(returnType, @encode(float)) == 0) {
+        float value = 0;
+        [invocation getReturnValue:&value];
+        return @(value);
+    } else if (strcmp(returnType, @encode(double)) == 0) {
+        double value = 0;
+        [invocation getReturnValue:&value];
+        return @(value);
+    } else if (strcmp(returnType, @encode(BOOL)) == 0) {
+        BOOL value = 0;
+        [invocation getReturnValue:&value];
+        return @(value);
+    } else if (strcmp(returnType, @encode(SEL)) == 0) {
+        SEL value = NULL;
+        [invocation getReturnValue:&value];
+        return NSStringFromSelector(value);
+    } else if (strcmp(returnType, @encode(CGPoint)) == 0) {
+        CGPoint value;
+        [invocation getReturnValue:&value];
+        return [NSValue valueWithCGPoint:value];
+    } else if (strcmp(returnType, @encode(CGVector)) == 0) {
+        CGVector value;
+        [invocation getReturnValue:&value];
+        return [NSValue valueWithCGVector:value];
+    } else if (strcmp(returnType, @encode(CGSize)) == 0) {
+        CGSize value;
+        [invocation getReturnValue:&value];
+        return [NSValue valueWithCGSize:value];
+    } else if (strcmp(returnType, @encode(CGRect)) == 0) {
+        CGRect value;
+        [invocation getReturnValue:&value];
+        return [NSValue valueWithCGRect:value];
+    } else if (strcmp(returnType, @encode(CGAffineTransform)) == 0) {
+        CGAffineTransform value;
+        [invocation getReturnValue:&value];
+        return [NSValue valueWithCGAffineTransform:value];
+    } else if (strcmp(returnType, @encode(UIEdgeInsets)) == 0) {
+        UIEdgeInsets value;
+        [invocation getReturnValue:&value];
+        return [NSValue valueWithUIEdgeInsets:value];
+    } else if (strcmp(returnType, @encode(UIOffset)) == 0) {
+        UIOffset value;
+        [invocation getReturnValue:&value];
+        return [NSValue valueWithUIOffset:value];
+    } else if (@available(iOS 11.0, *)) {
+        if (strcmp(returnType, @encode(NSDirectionalEdgeInsets)) == 0) {
+            NSDirectionalEdgeInsets value;
+            [invocation getReturnValue:&value];
+            return [NSValue valueWithDirectionalEdgeInsets:value];
+        } else {
+            NSUInteger valueSize = 0;
+            NSGetSizeAndAlignment(returnType, &valueSize, NULL);
+            unsigned char valueBytes[valueSize];
+            [invocation getReturnValue:valueBytes];
+            return [NSValue valueWithBytes:valueBytes objCType:returnType];
+        }
+    } else {
+        NSUInteger valueSize = 0;
+        NSGetSizeAndAlignment(returnType, &valueSize, NULL);
+        unsigned char valueBytes[valueSize];
+        [invocation getReturnValue:valueBytes];
+        return [NSValue valueWithBytes:valueBytes objCType:returnType];
     }
 }
 
